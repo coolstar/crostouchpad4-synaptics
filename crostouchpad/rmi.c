@@ -587,6 +587,10 @@ static int rmi_populate_f30(PSYNA_CONTEXT pDevice)
 		return ret;
 	}
 
+	pDevice->button_count = 0;
+	pDevice->button_mask = 0;
+	pDevice->button_state_mask = 0;
+
 	for (i = 0; i < pDevice->gpio_led_count; i++) {
 		int byte_position = i >> 3;
 		int bit_position = i & 0x07;
