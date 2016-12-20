@@ -305,6 +305,10 @@ static void rmi_f11_process_touch(PSYNA_CONTEXT pDevice, struct touch_softc *sc,
 		minor = min(wx, wy);
 		z = touch_data[4];
 
+		if (minor > 10) {
+			sc->palm[slot] = 1;
+		}
+
 		y = pDevice->max_y - y;
 
 		sc->x[slot] = x;
@@ -403,10 +407,12 @@ BOOLEAN OnInterruptIsr(
 	int x[5];
 	int y[5];
 	int p[5];
+	int palm[5];
 	for (int i = 0; i < 5; i++) {
 		x[i] = -1;
 		y[i] = -1;
 		p[i] = -1;
+		palm[i] = 0;
 	}
 
 	int index = 2;
@@ -417,6 +423,7 @@ BOOLEAN OnInterruptIsr(
 	softc.x = x;
 	softc.y = y;
 	softc.p = p;
+	softc.palm = palm;
 
 	if (pDevice->f11.interrupt_base < pDevice->f30.interrupt_base) {
 		index += rmi_f11_input(pDevice, &softc, &rmiInput[index]);
@@ -437,6 +444,7 @@ BOOLEAN OnInterruptIsr(
 			pDevice->XValue[i] = softc.x[i];
 			pDevice->YValue[i] = softc.y[i];
 			pDevice->PValue[i] = softc.p[i];
+			pDevice->Palm[i] = palm[i];
 		}
 	}
 
@@ -455,10 +463,16 @@ BOOLEAN OnInterruptIsr(
 
 			uint8_t flags = pDevice->Flags[i];
 			if (flags & MXT_T9_DETECT) {
-				report.Touch[count].Status = MULTI_CONFIDENCE_BIT | MULTI_TIPSWITCH_BIT;
+				if (pDevice->Palm[i])
+					report.Touch[count].Status = MULTI_TIPSWITCH_BIT;
+				else
+					report.Touch[count].Status = MULTI_CONFIDENCE_BIT | MULTI_TIPSWITCH_BIT;
 			}
 			else if (flags & MXT_T9_PRESS) {
-				report.Touch[count].Status = MULTI_CONFIDENCE_BIT | MULTI_TIPSWITCH_BIT;
+				if (pDevice->Palm[i])
+					report.Touch[count].Status = MULTI_TIPSWITCH_BIT;
+				else
+					report.Touch[count].Status = MULTI_CONFIDENCE_BIT | MULTI_TIPSWITCH_BIT;
 			}
 			else if (flags & MXT_T9_RELEASE) {
 				report.Touch[count].Status = MULTI_CONFIDENCE_BIT;

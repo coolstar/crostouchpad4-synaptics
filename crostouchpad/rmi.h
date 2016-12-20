@@ -83,4 +83,5 @@ struct touch_softc {
 	int *x;
 	int *y;
 	int *p;
+	int *palm;
 };
