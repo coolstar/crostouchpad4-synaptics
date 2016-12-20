@@ -2,6 +2,7 @@
 #include <driver.h>
 
 int rmi_populate();
+int rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, int sleep);
 
 static ULONG SynaDebugLevel = 100;
 static ULONG SynaDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
@@ -52,6 +53,8 @@ NTSTATUS BOOTTRACKPAD(
 	NTSTATUS status = 0;
 
 	rmi_populate(pDevice);
+
+	rmi_set_sleep_mode(pDevice, RMI_SLEEP_NORMAL);
 
 	//pDevice->max_x set by rmi_populate
 	//pDevice->max_y set by rmi_populate
@@ -280,6 +283,8 @@ Status
 	UNREFERENCED_PARAMETER(FxPreviousState);
 
 	PSYNA_CONTEXT pDevice = GetDeviceContext(FxDevice);
+
+	rmi_set_sleep_mode(pDevice, RMI_SLEEP_DEEP_SLEEP);
 
 	WdfTimerStop(pDevice->Timer, TRUE);
 

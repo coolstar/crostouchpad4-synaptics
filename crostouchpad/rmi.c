@@ -649,3 +649,9 @@ int rmi_populate(PSYNA_CONTEXT pDevice) {
 	}
 	return 0;
 }
+
+int rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, int sleep) {
+	uint8_t f01ctrl0 = (pDevice->f01_ctrl0 & ~0x3) | sleep;
+
+	return rmi_write(pDevice, pDevice->f01.control_base_addr, &f01ctrl0);
+}
