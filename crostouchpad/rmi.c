@@ -3,15 +3,6 @@
 static ULONG SynaPrintDebugLevel = 100;
 static ULONG SynaPrintDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
 
-static void set_bit(int nr, volatile unsigned long *addr)
-{
-	unsigned long mask = BIT_MASK(nr);
-	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-	unsigned long flags;
-
-	*p |= mask;
-}
-
 static int rmi_set_mode(PSYNA_CONTEXT pDevice, uint8_t mode) {
 	uint8_t command[] = { 0x00, 0x3f, 0x03, 0x0f, 0x23, 0x00, 0x04, 0x00, RMI_SET_RMI_MODE_REPORT_ID, mode }; //magic bytes from Linux
 	SpbWriteDataSynchronously(&pDevice->I2CContext, 0x22, command, sizeof(command));
@@ -610,8 +601,8 @@ static int rmi_populate_f30(PSYNA_CONTEXT pDevice)
 				/* actual buttons have pull up resistor */
 				pDevice->button_count++;
 				SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Button found at Bit 0x%d\n");
-				set_bit(i, &pDevice->button_mask);
-				set_bit(i, &pDevice->button_state_mask);
+				pDevice->button_mask += BIT(i);
+				pDevice->button_state_mask += BIT(i);
 			}
 		}
 

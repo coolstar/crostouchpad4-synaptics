@@ -3,12 +3,6 @@
 
 int rmi_populate();
 
-static int test_bit(int nr, const void *addr)
-{
-	const uint32_t *p = (const uint32_t *)addr;
-	return ((1UL << (nr & 31)) & (p[nr >> 5])) != 0;
-}
-
 static ULONG SynaDebugLevel = 100;
 static ULONG SynaDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
 
@@ -355,9 +349,9 @@ static int rmi_f30_input(PSYNA_CONTEXT pDevice, uint8_t irq, uint8_t *rmiInput, 
 	for (i = 0; i < pDevice->gpio_led_count; i++) {
 		if (i == 0)
 			continue;
-		if (test_bit(i, &pDevice->button_mask)) {
+		if (pDevice->button_mask & BIT(i)) {
 			value = (rmiInput[i / 8] >> (i & 0x07)) & BIT(0);
-			if (test_bit(i, &pDevice->button_state_mask))
+			if (pDevice->button_state_mask & BIT(i))
 				value = !value;
 			pDevice->BUTTONPRESSED = value;
 		}
