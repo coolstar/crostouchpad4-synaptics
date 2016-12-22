@@ -284,7 +284,7 @@ Status
 
 	PSYNA_CONTEXT pDevice = GetDeviceContext(FxDevice);
 
-	rmi_set_sleep_mode(pDevice, RMI_SLEEP_DEEP_SLEEP);
+	rmi_set_sleep_mode(pDevice, RMI_SLEEP_NORMAL);
 
 	WdfTimerStop(pDevice->Timer, TRUE);
 
