@@ -261,7 +261,7 @@ Status
 NTSTATUS
 OnD0Exit(
 _In_  WDFDEVICE               FxDevice,
-_In_  WDF_POWER_DEVICE_STATE  FxPreviousState
+_In_  WDF_POWER_DEVICE_STATE  FxTargetState
 )
 /*++
 
@@ -272,7 +272,7 @@ This routine destroys objects needed by the driver.
 Arguments:
 
 FxDevice - a handle to the framework device object
-FxPreviousState - previous power state
+FxTargetState - the target power state
 
 Return Value:
 
@@ -280,11 +280,15 @@ Status
 
 --*/
 {
-	UNREFERENCED_PARAMETER(FxPreviousState);
+	UNREFERENCED_PARAMETER(FxTargetState);
 
 	PSYNA_CONTEXT pDevice = GetDeviceContext(FxDevice);
+	
+	if (FxTargetState <= 4) {
 
-	rmi_set_sleep_mode(pDevice, RMI_SLEEP_NORMAL);
+	rmi_set_sleep_mode(pDevice, RMI_SLEEP_DEEP_SLEEP);
+	
+	}
 
 	WdfTimerStop(pDevice->Timer, TRUE);
 
