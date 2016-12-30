@@ -284,7 +284,7 @@ Status
 
 	PSYNA_CONTEXT pDevice = GetDeviceContext(FxDevice);
 	
-	if (FxTargetState <= 4) {
+	if (FxTargetState != 5) {
 
 	rmi_set_sleep_mode(pDevice, RMI_SLEEP_DEEP_SLEEP);
 	
