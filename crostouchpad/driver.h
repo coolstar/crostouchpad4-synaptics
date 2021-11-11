@@ -27,8 +27,6 @@
 #define DRIVERNAME                 "crostouchpad4.sys: "
 
 #define SYNA_POOL_TAG            (ULONG) 'anyS'
-#define SYNA_HARDWARE_IDS        L"CoolStar\\SYNA0000\0\0"
-#define SYNA_HARDWARE_IDS_LENGTH sizeof(SYNA_HARDWARE_IDS)
 
 #define NTDEVICE_NAME_STRING       L"\\Device\\SYNA0000"
 #define SYMBOLIC_NAME_STRING       L"\\DosDevices\\SYNA0000"
@@ -278,8 +276,6 @@ DRIVER_INITIALIZE DriverEntry;
 EVT_WDF_DRIVER_UNLOAD SynaDriverUnload;
 
 EVT_WDF_DRIVER_DEVICE_ADD SynaEvtDeviceAdd;
-
-EVT_WDFDEVICE_WDM_IRP_PREPROCESS SynaEvtWdmPreprocessMnQueryId;
 
 EVT_WDF_IO_QUEUE_IO_INTERNAL_DEVICE_CONTROL SynaEvtInternalDeviceControl;
 

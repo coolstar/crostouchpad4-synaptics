@@ -1,5 +1,5 @@
 #define DESCRIPTOR_DEF
-#include <driver.h>
+#include "driver.h"
 
 int rmi_populate();
 int rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, int sleep);
@@ -644,28 +644,6 @@ IN PWDFDEVICE_INIT DeviceInit
 	}
 
 	//
-	// Because we are a virtual device the root enumerator would just put null values 
-	// in response to IRP_MN_QUERY_ID. Lets override that.
-	//
-
-	minorFunction = IRP_MN_QUERY_ID;
-
-	status = WdfDeviceInitAssignWdmIrpPreprocessCallback(
-		DeviceInit,
-		SynaEvtWdmPreprocessMnQueryId,
-		IRP_MJ_PNP,
-		&minorFunction,
-		1
-		);
-	if (!NT_SUCCESS(status))
-	{
-		SynaPrint(DEBUG_LEVEL_ERROR, DBG_PNP,
-			"WdfDeviceInitAssignWdmIrpPreprocessCallback failed Status 0x%x\n", status);
-
-		return status;
-	}
-
-	//
 	// Setup the device context
 	//
 
@@ -774,110 +752,6 @@ IN PWDFDEVICE_INIT DeviceInit
 
 	devContext->DeviceMode = DEVICE_MODE_MOUSE;
 	devContext->FxDevice = device;
-
-	return status;
-}
-
-NTSTATUS
-SynaEvtWdmPreprocessMnQueryId(
-WDFDEVICE Device,
-PIRP Irp
-)
-{
-	NTSTATUS            status;
-	PIO_STACK_LOCATION  IrpStack, previousSp;
-	PDEVICE_OBJECT      DeviceObject;
-	PWCHAR              buffer;
-
-	PAGED_CODE();
-
-	//
-	// Get a pointer to the current location in the Irp
-	//
-
-	IrpStack = IoGetCurrentIrpStackLocation(Irp);
-
-	//
-	// Get the device object
-	//
-	DeviceObject = WdfDeviceWdmGetDeviceObject(Device);
-
-
-	SynaPrint(DEBUG_LEVEL_VERBOSE, DBG_PNP,
-		"SynaEvtWdmPreprocessMnQueryId Entry\n");
-
-	//
-	// This check is required to filter out QUERY_IDs forwarded
-	// by the HIDCLASS for the parent FDO. These IDs are sent
-	// by PNP manager for the parent FDO if you root-enumerate this driver.
-	//
-	previousSp = ((PIO_STACK_LOCATION)((UCHAR *)(IrpStack)+
-		sizeof(IO_STACK_LOCATION)));
-
-	if (previousSp->DeviceObject == DeviceObject)
-	{
-		//
-		// Filtering out this basically prevents the Found New Hardware
-		// popup for the root-enumerated Syna on reboot.
-		//
-		status = Irp->IoStatus.Status;
-	}
-	else
-	{
-		switch (IrpStack->Parameters.QueryId.IdType)
-		{
-		case BusQueryDeviceID:
-		case BusQueryHardwareIDs:
-			//
-			// HIDClass is asking for child deviceid & hardwareids.
-			// Let us just make up some id for our child device.
-			//
-			buffer = (PWCHAR)ExAllocatePoolWithTag(
-				NonPagedPool,
-				SYNA_HARDWARE_IDS_LENGTH,
-				SYNA_POOL_TAG
-				);
-
-			if (buffer)
-			{
-				//
-				// Do the copy, store the buffer in the Irp
-				//
-				RtlCopyMemory(buffer,
-					SYNA_HARDWARE_IDS,
-					SYNA_HARDWARE_IDS_LENGTH
-					);
-
-				Irp->IoStatus.Information = (ULONG_PTR)buffer;
-				status = STATUS_SUCCESS;
-			}
-			else
-			{
-				//
-				//  No memory
-				//
-				status = STATUS_INSUFFICIENT_RESOURCES;
-			}
-
-			Irp->IoStatus.Status = status;
-			//
-			// We don't need to forward this to our bus. This query
-			// is for our child so we should complete it right here.
-			// fallthru.
-			//
-			IoCompleteRequest(Irp, IO_NO_INCREMENT);
-
-			break;
-
-		default:
-			status = Irp->IoStatus.Status;
-			IoCompleteRequest(Irp, IO_NO_INCREMENT);
-			break;
-		}
-	}
-
-	SynaPrint(DEBUG_LEVEL_VERBOSE, DBG_IOCTL,
-		"SynaEvtWdmPreprocessMnQueryId Exit = 0x%x\n", status);
 
 	return status;
 }
