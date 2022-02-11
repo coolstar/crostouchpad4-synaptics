@@ -263,6 +263,7 @@ Status
 		return status;
 	}
 
+	pDevice->ConnectInterrupt = true;
 	pDevice->RegsSet = false;
 
 	return status;
