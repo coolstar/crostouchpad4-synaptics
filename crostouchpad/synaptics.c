@@ -1,8 +1,8 @@
 #define DESCRIPTOR_DEF
 #include "driver.h"
 
-int rmi_populate();
-int rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, int sleep);
+NTSTATUS rmi_populate(PSYNA_CONTEXT pDevice);
+NTSTATUS rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, int sleep);
 
 static ULONG SynaDebugLevel = 100;
 static ULONG SynaDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
@@ -52,9 +52,10 @@ NTSTATUS BOOTTRACKPAD(
 {
 	NTSTATUS status = 0;
 
-	rmi_populate(pDevice);
-
-	rmi_set_sleep_mode(pDevice, RMI_SLEEP_NORMAL);
+	status = rmi_populate(pDevice);
+	if (!NT_SUCCESS(status)) {
+		return status;
+	}
 
 	//pDevice->max_x set by rmi_populate
 	//pDevice->max_y set by rmi_populate
@@ -184,6 +185,12 @@ Status
 		return status;
 	}
 
+	status = BOOTTRACKPAD(pDevice);
+	if (!NT_SUCCESS(status))
+	{
+		return status;
+	}
+
 	return status;
 }
 
@@ -251,7 +258,10 @@ Status
 		pDevice->Flags[i] = 0;
 	}
 
-	BOOTTRACKPAD(pDevice);
+	status = rmi_set_sleep_mode(pDevice, RMI_SLEEP_NORMAL);
+	if (!NT_SUCCESS(status)) {
+		return status;
+	}
 
 	pDevice->RegsSet = false;
 
@@ -284,13 +294,13 @@ Status
 
 	PSYNA_CONTEXT pDevice = GetDeviceContext(FxDevice);
 
-	rmi_set_sleep_mode(pDevice, RMI_SLEEP_DEEP_SLEEP);
+	NTSTATUS status = rmi_set_sleep_mode(pDevice, RMI_SLEEP_DEEP_SLEEP);
 
 	WdfTimerStop(pDevice->Timer, TRUE);
 
 	pDevice->ConnectInterrupt = false;
 
-	return STATUS_SUCCESS;
+	return status;
 }
 
 static void rmi_f11_process_touch(PSYNA_CONTEXT pDevice, struct touch_softc *sc, int slot,
@@ -377,7 +387,7 @@ BOOLEAN OnInterruptIsr(
 	PSYNA_CONTEXT pDevice = GetDeviceContext(Device);
 
 	if (!pDevice->ConnectInterrupt)
-		return true;
+		return false;
 
 	LARGE_INTEGER CurrentTime;
 
@@ -391,7 +401,10 @@ BOOLEAN OnInterruptIsr(
 		DIFF.QuadPart = (CurrentTime.QuadPart - pDevice->LastTime.QuadPart) / 1000;
 
 	uint8_t i2cInput[42];
-	SpbOnlyReadDataSynchronously(&pDevice->I2CContext, &i2cInput, sizeof(i2cInput));
+	NTSTATUS status = SpbOnlyReadDataSynchronously(&pDevice->I2CContext, &i2cInput, sizeof(i2cInput));
+	if (!NT_SUCCESS(status)) {
+		return false;
+	}
 
 	uint8_t rmiInput[40];
 	for (int i = 0; i < 40; i++) {
@@ -399,11 +412,11 @@ BOOLEAN OnInterruptIsr(
 	}
 
 	if (rmiInput[0] == 0x00)
-		return true;
+		return false;
 
 	if (rmiInput[0] != RMI_ATTN_REPORT_ID) {
 		SynaPrint(DEBUG_LEVEL_ERROR, DBG_PNP, "Unknown Report ID: 0x%x\n", rmiInput[0]);
-		return true;
+		return false;
 	}
 
 	struct _SYNA_MULTITOUCH_REPORT report;

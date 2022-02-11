@@ -3,13 +3,12 @@
 static ULONG SynaPrintDebugLevel = 100;
 static ULONG SynaPrintDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
 
-static int rmi_set_mode(PSYNA_CONTEXT pDevice, uint8_t mode) {
+static NTSTATUS rmi_set_mode(PSYNA_CONTEXT pDevice, uint8_t mode) {
 	uint8_t command[] = { 0x00, 0x3f, 0x03, 0x0f, 0x23, 0x00, 0x04, 0x00, RMI_SET_RMI_MODE_REPORT_ID, mode }; //magic bytes from Linux
-	SpbWriteDataSynchronously(&pDevice->I2CContext, 0x22, command, sizeof(command));
-	return 0;
+	return SpbWriteDataSynchronously(&pDevice->I2CContext, 0x22, command, sizeof(command));
 }
 
-static int rmi_write_report(PSYNA_CONTEXT pDevice, uint8_t *report, size_t report_size) {
+static NTSTATUS rmi_write_report(PSYNA_CONTEXT pDevice, uint8_t *report, size_t report_size) {
 	uint8_t command[24];
 	command[0] = 0x00;
 	command[1] = 0x17;
@@ -20,14 +19,13 @@ static int rmi_write_report(PSYNA_CONTEXT pDevice, uint8_t *report, size_t repor
 		command[i + 3] = report[i];
 	}
 	//SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "\n");
-	SpbWriteDataSynchronously(&pDevice->I2CContext, 0x25, command, sizeof(command));
-	return 0;
+	return SpbWriteDataSynchronously(&pDevice->I2CContext, 0x25, command, sizeof(command));
 }
 
-static int rmi_set_page(PSYNA_CONTEXT pDevice, uint8_t page)
+static NTSTATUS rmi_set_page(PSYNA_CONTEXT pDevice, uint8_t page)
 {
 	uint8_t writeReport[21];
-	int retval;
+	NTSTATUS retval;
 
 	writeReport[0] = RMI_WRITE_REPORT_ID;
 	writeReport[1] = 1;
@@ -44,19 +42,19 @@ static int rmi_set_page(PSYNA_CONTEXT pDevice, uint8_t page)
 	return retval;
 }
 
-static int rmi_read_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf,
+static NTSTATUS rmi_read_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf,
 	const int len)
 {
 	SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Read Block: 0x%x\n", addr);
-	int ret = 0;
+	NTSTATUS status = 0;
 	int bytes_read;
 	int bytes_needed;
 	int retries;
 	int read_input_count;
 
 	if (RMI_PAGE(addr) != pDevice->page) {
-		ret = rmi_set_page(pDevice, RMI_PAGE(addr));
-		if (ret < 0)
+		status = rmi_set_page(pDevice, RMI_PAGE(addr));
+		if (!NT_SUCCESS(status))
 			goto exit;
 	}
 
@@ -70,10 +68,14 @@ static int rmi_read_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf,
 	writeReport[3] = (addr >> 8) & 0xFF;
 	writeReport[4] = len & 0xFF;
 	writeReport[5] = (len >> 8) & 0xFF;
-	rmi_write_report(pDevice, writeReport, sizeof(writeReport));
+	status = rmi_write_report(pDevice, writeReport, sizeof(writeReport));
+	if (!NT_SUCCESS(status))
+		goto exit;
 
 	uint8_t i2cInput[42];
-	SpbOnlyReadDataSynchronously(&pDevice->I2CContext, i2cInput, sizeof(i2cInput));
+	status = SpbOnlyReadDataSynchronously(&pDevice->I2CContext, i2cInput, sizeof(i2cInput));
+	if (!NT_SUCCESS(status))
+		goto exit;
 
 	uint8_t rmiInput[40];
 	for (int i = 0; i < 40; i++) {
@@ -89,16 +91,16 @@ static int rmi_read_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf,
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "\n");
 	}
 exit:
-	return ret;
+	return status;
 }
 
-static int rmi_read(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf) {
+static NTSTATUS rmi_read(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf) {
 	return rmi_read_block(pDevice, addr, buf, 1);
 }
 
-static int rmi_write_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf, const int len)
+static NTSTATUS rmi_write_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf, const int len)
 {
-	int ret;
+	NTSTATUS status = STATUS_SUCCESS;
 
 	uint8_t writeReport[21];
 	for (int i = 0; i < 21; i++) {
@@ -106,8 +108,8 @@ static int rmi_write_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf, c
 	}
 
 	if (RMI_PAGE(addr) != pDevice->page) {
-		ret = rmi_set_page(pDevice, RMI_PAGE(addr));
-		if (ret < 0)
+		status = rmi_set_page(pDevice, RMI_PAGE(addr));
+		if (!NT_SUCCESS(status))
 			goto exit;
 	}
 
@@ -119,19 +121,18 @@ static int rmi_write_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf, c
 		writeReport[i + 4] = buf[i];
 	}
 
-	ret = rmi_write_report(pDevice, writeReport, sizeof(writeReport));
-	if (ret < 0) {
+	status = rmi_write_report(pDevice, writeReport, sizeof(writeReport));
+	if (!NT_SUCCESS(status)) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "failed to write request output report (%d)\n",
-			ret);
+			status);
 		goto exit;
 	}
-	ret = 0;
 
 exit:
-	return ret;
+	return status;
 }
 
-static int rmi_write(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf)
+static NTSTATUS rmi_write(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf)
 {
 	return rmi_write_block(pDevice, addr, buf, 1);
 }
@@ -223,11 +224,11 @@ error_exit:
 	return retval;
 }
 
-static int rmi_populate_f01(PSYNA_CONTEXT pDevice)
+static NTSTATUS rmi_populate_f01(PSYNA_CONTEXT pDevice)
 {
 	uint8_t basic_queries[RMI_DEVICE_F01_BASIC_QUERY_LEN];
 	uint8_t info[3];
-	int ret;
+	NTSTATUS status;
 	bool has_query42;
 	bool has_lts;
 	bool has_sensor_id;
@@ -238,11 +239,11 @@ static int rmi_populate_f01(PSYNA_CONTEXT pDevice)
 	uint16_t prod_info_addr;
 	uint8_t ds4_query_len;
 
-	ret = rmi_read_block(pDevice, query_offset, basic_queries,
+	status = rmi_read_block(pDevice, query_offset, basic_queries,
 		RMI_DEVICE_F01_BASIC_QUERY_LEN);
-	if (ret) {
+	if (!NT_SUCCESS(status)) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Can not read basic queries from Function 0x1.\n");
-		return ret;
+		return status;
 	}
 
 	has_lts = !!(basic_queries[0] & BIT(2));
@@ -260,28 +261,28 @@ static int rmi_populate_f01(PSYNA_CONTEXT pDevice)
 		query_offset++;
 
 	if (has_query42) {
-		ret = rmi_read(pDevice, query_offset, info);
-		if (ret) {
+		status = rmi_read(pDevice, query_offset, info);
+		if (!NT_SUCCESS(status)) {
 			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Can not read query42.\n");
-			return ret;
+			return status;
 		}
 		has_ds4_queries = !!(info[0] & BIT(0));
 		query_offset++;
 	}
 
 	if (has_ds4_queries) {
-		ret = rmi_read(pDevice, query_offset, &ds4_query_len);
-		if (ret) {
+		status = rmi_read(pDevice, query_offset, &ds4_query_len);
+		if (!NT_SUCCESS(status)) {
 			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Can not read DS4 Query length.\n");
-			return ret;
+			return status;
 		}
 		query_offset++;
 
 		if (ds4_query_len > 0) {
-			ret = rmi_read(pDevice, query_offset, info);
-			if (ret) {
+			status = rmi_read(pDevice, query_offset, info);
+			if (!NT_SUCCESS(status)) {
 				SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Can not read DS4 query.\n");
-				return ret;
+				return status;
 			}
 
 			has_package_id_query = !!(info[0] & BIT(0));
@@ -293,22 +294,22 @@ static int rmi_populate_f01(PSYNA_CONTEXT pDevice)
 		prod_info_addr++;
 
 	if (has_build_id_query) {
-		ret = rmi_read_block(pDevice, prod_info_addr, info, 3);
-		if (ret) {
+		status = rmi_read_block(pDevice, prod_info_addr, info, 3);
+		if (!NT_SUCCESS(status)) {
 			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Can not read product info.\n");
-			return ret;
+			return status;
 		}
 
 		pDevice->firmware_id = info[1] << 8 | info[0];
 		pDevice->firmware_id += info[2] * 65536;
 	}
 
-	ret = rmi_read_block(pDevice, pDevice->f01.control_base_addr, info,
+	status = rmi_read_block(pDevice, pDevice->f01.control_base_addr, info,
 		2);
 
-	if (ret) {
+	if (!NT_SUCCESS(status)) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not read f01 ctrl registers\n");
-		return ret;
+		return status;
 	}
 
 	pDevice->f01_ctrl0 = info[0];
@@ -323,22 +324,22 @@ static int rmi_populate_f01(PSYNA_CONTEXT pDevice)
 		*/
 		pDevice->restore_interrupt_mask = true;
 
-		ret = rmi_write(pDevice, pDevice->f01.control_base_addr + 1,
+		status = rmi_write(pDevice, pDevice->f01.control_base_addr + 1,
 			&pDevice->interrupt_enable_mask);
-		if (ret) {
-			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not write to control reg 1: %d.\n", ret);
-			return ret;
+		if (!NT_SUCCESS(status)) {
+			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not write to control reg 1: %d.\n", status);
+			return status;
 		}
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Firmware bug fix needed!!! :/\n");
 	}
 
-	return 0;
+	return status;
 }
 
-static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
+static NTSTATUS rmi_populate_f11(PSYNA_CONTEXT pDevice)
 {
 	uint8_t buf[20];
-	int ret;
+	NTSTATUS status;
 	bool has_query9;
 	bool has_query10 = false;
 	bool has_query11;
@@ -357,14 +358,14 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 
 	if (!pDevice->f11.query_base_addr) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "No 2D sensor found, giving up.\n");
-		return -ENODEV;
+		return STATUS_NO_SUCH_DEVICE;
 	}
 
 	/* query 0 contains some useful information */
-	ret = rmi_read(pDevice, pDevice->f11.query_base_addr, buf);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get query 0: %d.\n", ret);
-		return ret;
+	status = rmi_read(pDevice, pDevice->f11.query_base_addr, buf);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get query 0: %d.\n", status);
+		return status;
 	}
 	has_query9 = !!(buf[0] & BIT(3));
 	has_query11 = !!(buf[0] & BIT(4));
@@ -373,10 +374,10 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 	has_query28 = !!(buf[0] & BIT(7));
 
 	/* query 1 to get the max number of fingers */
-	ret = rmi_read(pDevice, pDevice->f11.query_base_addr + 1, buf);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get NumberOfFingers: %d.\n", ret);
-		return ret;
+	status = rmi_read(pDevice, pDevice->f11.query_base_addr + 1, buf);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get NumberOfFingers: %d.\n", status);
+		return status;
 	}
 	pDevice->max_fingers = (buf[0] & 0x07) + 1;
 	if (pDevice->max_fingers > 5)
@@ -387,16 +388,16 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 
 	if (!(buf[0] & BIT(4))) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "No absolute events, giving up.\n");
-		return -ENODEV;
+		return STATUS_INVALID_DEVICE_REQUEST;
 	}
 
 	has_rel = !!(buf[0] & BIT(3));
 	has_gestures = !!(buf[0] & BIT(5));
 
-	ret = rmi_read(pDevice, pDevice->f11.query_base_addr + 5, buf);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get absolute data sources: %d.\n", ret);
-		return ret;
+	status = rmi_read(pDevice, pDevice->f11.query_base_addr + 5, buf);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get absolute data sources: %d.\n", status);
+		return status;
 	}
 
 	has_dribble = !!(buf[0] & BIT(4));
@@ -413,11 +414,11 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 
 	if (has_gestures) {
 		/* query 8 to find out if query 10 exists */
-		ret = rmi_read(pDevice, pDevice->f11.query_base_addr + query_offset + 1, buf);
-		if (ret) {
+		status = rmi_read(pDevice, pDevice->f11.query_base_addr + query_offset + 1, buf);
+		if (!NT_SUCCESS(status)) {
 			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not read gesture information: %d.\n",
-				ret);
-			return ret;
+				status);
+			return status;
 		}
 		has_palm_detect = !!(buf[0] & BIT(0));
 		has_query10 = !!(buf[0] & BIT(2));
@@ -436,22 +437,22 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 
 	/* query 12 to know if the physical properties are reported */
 	if (has_query12) {
-		ret = rmi_read(pDevice, pDevice->f11.query_base_addr
+		status = rmi_read(pDevice, pDevice->f11.query_base_addr
 			+ query_offset, buf);
-		if (ret) {
-			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get query 12: %d.\n", ret);
-			return ret;
+		if (!NT_SUCCESS(status)) {
+			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get query 12: %d.\n", status);
+			return status;
 		}
 		has_physical_props = !!(buf[0] & BIT(5));
 
 		if (has_physical_props) {
 			query_offset += 1;
-			ret = rmi_read_block(pDevice, pDevice->f11.query_base_addr
+			status = rmi_read_block(pDevice, pDevice->f11.query_base_addr
 				+ query_offset, buf, 4);
-			if (ret) {
+			if (status) {
 				SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not read query 15-18: %d.\n",
-					ret);
-				return ret;
+					status);
+				return status;
 			}
 
 			x_size = buf[0] | (buf[1] << 8);
@@ -475,11 +476,11 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 		++query_offset;
 
 	if (has_query28) {
-		ret = rmi_read(pDevice, pDevice->f11.query_base_addr
+		status = rmi_read(pDevice, pDevice->f11.query_base_addr
 			+ query_offset, buf);
-		if (ret) {
-			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get query 28: %d.\n", ret);
-			return ret;
+		if (!NT_SUCCESS(status)) {
+			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get query 28: %d.\n", status);
+			return status;
 		}
 
 		has_query36 = !!(buf[0] & BIT(6));
@@ -487,11 +488,11 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 
 	if (has_query36) {
 		query_offset += 2;
-		ret = rmi_read(pDevice, pDevice->f11.query_base_addr
+		status = rmi_read(pDevice, pDevice->f11.query_base_addr
 			+ query_offset, buf);
-		if (ret) {
-			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get query 36: %d.\n", ret);
-			return ret;
+		if (!NT_SUCCESS(status)) {
+			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get query 36: %d.\n", status);
+			return status;
 		}
 
 		has_data40 = !!(buf[0] & BIT(5));
@@ -501,11 +502,11 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 	if (has_data40)
 		pDevice->f11.report_size += pDevice->max_fingers * 2;
 
-	ret = rmi_read_block(pDevice, pDevice->f11.control_base_addr,
+	status = rmi_read_block(pDevice, pDevice->f11.control_base_addr,
 		pDevice->f11_ctrl_regs, RMI_F11_CTRL_REG_COUNT);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not read ctrl block of size 11: %d.\n", ret);
-		return ret;
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not read ctrl block of size 11: %d.\n", status);
+		return status;
 	}
 
 	/* data->f11_ctrl_regs now contains valid register data */
@@ -519,34 +520,34 @@ static int rmi_populate_f11(PSYNA_CONTEXT pDevice)
 	if (has_dribble) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Has Dribble\n");
 		pDevice->f11_ctrl_regs[0] = pDevice->f11_ctrl_regs[0] & ~BIT(6);
-		ret = rmi_write(pDevice, pDevice->f11.control_base_addr,
+		status = rmi_write(pDevice, pDevice->f11.control_base_addr,
 			pDevice->f11_ctrl_regs);
-		if (ret) {
+		if (!NT_SUCCESS(status)) {
 			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not write to control reg 0: %d.\n",
-				ret);
-			return ret;
+				status);
+			return status;
 		}
 	}
 
 	if (has_palm_detect) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Has Palm Detect\n");
 		pDevice->f11_ctrl_regs[11] = pDevice->f11_ctrl_regs[11] & ~BIT(0);
-		ret = rmi_write(pDevice, pDevice->f11.control_base_addr + 11,
+		status = rmi_write(pDevice, pDevice->f11.control_base_addr + 11,
 			&pDevice->f11_ctrl_regs[11]);
-		if (ret) {
+		if (!NT_SUCCESS(status)) {
 			SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not write to control reg 11: %d.\n",
-				ret);
-			return ret;
+				status);
+			return status;
 		}
 	}
 
-	return 0;
+	return status;
 }
 
-static int rmi_populate_f30(PSYNA_CONTEXT pDevice)
+static NTSTATUS rmi_populate_f30(PSYNA_CONTEXT pDevice)
 {
 	uint8_t buf[20];
-	int ret;
+	NTSTATUS status;
 	bool has_gpio, has_led;
 	unsigned bytes_per_ctrl;
 	uint8_t ctrl2_addr;
@@ -556,13 +557,13 @@ static int rmi_populate_f30(PSYNA_CONTEXT pDevice)
 	/* function F30 is for physical buttons */
 	if (!pDevice->f30.query_base_addr) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "No GPIO/LEDs found, giving up.\n");
-		return -ENODEV;
+		return STATUS_NO_SUCH_DEVICE;
 	}
 
-	ret = rmi_read_block(pDevice, pDevice->f30.query_base_addr, buf, 2);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get F30 query registers: %d.\n", ret);
-		return ret;
+	status = rmi_read_block(pDevice, pDevice->f30.query_base_addr, buf, 2);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not get F30 query registers: %d.\n", status);
+		return status;
 	}
 
 	has_gpio = !!(buf[0] & BIT(3));
@@ -579,12 +580,12 @@ static int rmi_populate_f30(PSYNA_CONTEXT pDevice)
 
 	pDevice->f30.report_size = bytes_per_ctrl;
 
-	ret = rmi_read_block(pDevice, pDevice->f30.control_base_addr + ctrl2_addr,
+	status = rmi_read_block(pDevice, pDevice->f30.control_base_addr + ctrl2_addr,
 		buf, ctrl2_3_length);
-	if (ret) {
+	if (!NT_SUCCESS(status)) {
 		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "can not read ctrl 2&3 block of size %d: %d.\n",
-			ctrl2_3_length, ret);
-		return ret;
+			ctrl2_3_length, status);
+		return status;
 	}
 
 	pDevice->button_count = 0;
@@ -612,45 +613,45 @@ static int rmi_populate_f30(PSYNA_CONTEXT pDevice)
 
 	}
 
-	return 0;
+	return status;
 }
 
-int rmi_populate(PSYNA_CONTEXT pDevice) {
-	int ret;
+NTSTATUS rmi_populate(PSYNA_CONTEXT pDevice) {
+	NTSTATUS status;
 
-	ret = rmi_set_mode(pDevice, 0);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "PDT set mode failed with code %d\n", ret);
-		return ret;
+	status = rmi_set_mode(pDevice, 0);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "PDT set mode failed with code %d\n", status);
+		return status;
 	}
 
-	ret = rmi_scan_pdt(pDevice);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "PDT scan failed with code %d\n", ret);
-		return ret;
+	status = rmi_scan_pdt(pDevice);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "PDT scan failed with code %d\n", status);
+		return status;
 	}
 
-	ret = rmi_populate_f01(pDevice);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Error while initializing F01 (%d)\n", ret);
-		return ret;
+	status = rmi_populate_f01(pDevice);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Error while initializing F01 (%d)\n", status);
+		return status;
 	}
 
-	ret = rmi_populate_f11(pDevice);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Error while initializing F11 (%d)\n", ret);
-		return ret;
+	status = rmi_populate_f11(pDevice);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Error while initializing F11 (%d)\n", status);
+		return status;
 	}
 
-	ret = rmi_populate_f30(pDevice);
-	if (ret) {
-		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Error while initializing F30 (%d)\n", ret);
-		return ret;
+	status = rmi_populate_f30(pDevice);
+	if (!NT_SUCCESS(status)) {
+		SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Error while initializing F30 (%d)\n", status);
+		return status;
 	}
-	return 0;
+	return status;
 }
 
-int rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, int sleep) {
+NTSTATUS rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, int sleep) {
 	uint8_t f01ctrl0 = (pDevice->f01_ctrl0 & ~0x3) | sleep;
 
 	return rmi_write(pDevice, pDevice->f01.control_base_addr, &f01ctrl0);
