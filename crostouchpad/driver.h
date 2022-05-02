@@ -215,8 +215,6 @@ typedef struct _SYNA_CONTEXT
 
 	BOOLEAN RegsSet;
 
-	WDFTIMER Timer;
-
 	uint8_t      Flags[5];
 
 	USHORT XValue[5];
