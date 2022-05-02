@@ -252,8 +252,8 @@ typedef struct _SYNA_CONTEXT
 	struct rmi_function f30;
 
 	unsigned int max_fingers;
-	unsigned int x_size_mm;
-	unsigned int y_size_mm;
+	uint16_t x_size_mm;
+	uint16_t y_size_mm;
 	bool read_f11_ctrl_regs;
 	uint8_t f11_ctrl_regs[RMI_F11_CTRL_REG_COUNT];
 

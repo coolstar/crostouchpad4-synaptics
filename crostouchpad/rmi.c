@@ -47,10 +47,6 @@ static NTSTATUS rmi_read_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *bu
 {
 	SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Read Block: 0x%x\n", addr);
 	NTSTATUS status = 0;
-	int bytes_read;
-	int bytes_needed;
-	int retries;
-	int read_input_count;
 
 	if (RMI_PAGE(addr) != pDevice->page) {
 		status = rmi_set_page(pDevice, RMI_PAGE(addr));
@@ -98,7 +94,7 @@ static NTSTATUS rmi_read(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf) {
 	return rmi_read_block(pDevice, addr, buf, 1);
 }
 
-static NTSTATUS rmi_write_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf, const int len)
+static NTSTATUS rmi_write_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *buf, const uint8_t len)
 {
 	NTSTATUS status = STATUS_SUCCESS;
 
@@ -142,7 +138,7 @@ static unsigned long rmi_gen_mask(unsigned irq_base, unsigned irq_count)
 	return GENMASK(irq_count + irq_base - 1, irq_base);
 }
 
-static void rmi_register_function(PSYNA_CONTEXT pDevice, struct pdt_entry *pdt_entry, int page, unsigned interrupt_count)
+static void rmi_register_function(PSYNA_CONTEXT pDevice, struct pdt_entry *pdt_entry, uint16_t page, unsigned interrupt_count)
 {
 	struct rmi_function *f = NULL;
 	uint16_t page_base = page << 8;
@@ -176,9 +172,9 @@ static void rmi_register_function(PSYNA_CONTEXT pDevice, struct pdt_entry *pdt_e
 int rmi_scan_pdt(PSYNA_CONTEXT pDevice)
 {
 	struct pdt_entry entry;
-	int page;
+	uint16_t page;
 	bool page_has_function;
-	int i;
+	uint16_t i;
 	int retval;
 	int interrupt = 0;
 	uint16_t page_start, pdt_start, pdt_end;
@@ -353,7 +349,7 @@ static NTSTATUS rmi_populate_f11(PSYNA_CONTEXT pDevice)
 	bool has_data40 = false;
 	bool has_dribble = false;
 	bool has_palm_detect = false;
-	unsigned x_size, y_size;
+	uint16_t x_size, y_size;
 	uint16_t query_offset;
 
 	if (!pDevice->f11.query_base_addr) {
@@ -549,10 +545,10 @@ static NTSTATUS rmi_populate_f30(PSYNA_CONTEXT pDevice)
 	uint8_t buf[20];
 	NTSTATUS status;
 	bool has_gpio, has_led;
-	unsigned bytes_per_ctrl;
+	uint8_t bytes_per_ctrl;
 	uint8_t ctrl2_addr;
 	int ctrl2_3_length;
-	int i;
+	uint32_t i;
 
 	/* function F30 is for physical buttons */
 	if (!pDevice->f30.query_base_addr) {

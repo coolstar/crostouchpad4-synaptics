@@ -252,7 +252,7 @@ Status
 	PSYNA_CONTEXT pDevice = GetDeviceContext(FxDevice);
 	NTSTATUS status = STATUS_SUCCESS;
 
-	for (int i = 0; i < 20; i++){
+	for (int i = 0; i < 5; i++){
 		pDevice->Flags[i] = 0;
 	}
 
@@ -340,7 +340,7 @@ int rmi_f11_input(PSYNA_CONTEXT pDevice, struct touch_softc *sc, uint8_t *rmiInp
 	for (i = 0; i < max_fingers; i++) {
 		int fs_byte_position = i >> 2;
 		int fs_bit_position = (i & 0x3) << 1;
-		int finger_state = (rmiInput[fs_byte_position] >> fs_bit_position) &
+		uint8_t finger_state = (rmiInput[fs_byte_position] >> fs_bit_position) &
 			0x03;
 		int position = offset + 5 * i;
 		rmi_f11_process_touch(pDevice, sc, i, finger_state, &rmiInput[position]);
@@ -350,8 +350,7 @@ int rmi_f11_input(PSYNA_CONTEXT pDevice, struct touch_softc *sc, uint8_t *rmiInp
 
 static int rmi_f30_input(PSYNA_CONTEXT pDevice, uint8_t irq, uint8_t *rmiInput, int size)
 {
-	int i;
-	int button = 0;
+	uint32_t i;
 	bool value;
 
 	if (!(irq & pDevice->f30.irq_mask))
@@ -456,18 +455,18 @@ BOOLEAN OnInterruptIsr(
 		if (softc.x[i] != -1) {
 			pDevice->Flags[i] = MXT_T9_DETECT;
 
-			pDevice->XValue[i] = softc.x[i];
-			pDevice->YValue[i] = softc.y[i];
-			pDevice->PValue[i] = softc.p[i];
-			pDevice->Palm[i] = palm[i];
+			pDevice->XValue[i] = (USHORT)softc.x[i];
+			pDevice->YValue[i] = (USHORT)softc.y[i];
+			pDevice->PValue[i] = (USHORT)softc.p[i];
+			pDevice->Palm[i] = (USHORT)palm[i];
 		}
 	}
 
-	pDevice->TIMEINT += DIFF.QuadPart;
+	pDevice->TIMEINT += (USHORT)DIFF.QuadPart;
 
 	pDevice->LastTime = CurrentTime;
 
-	int count = 0, i = 0;
+	BYTE count = 0, i = 0;
 	while (count < 5 && i < 5) {
 		if (pDevice->Flags[i] != 0) {
 			report.Touch[count].ContactID = i;
@@ -525,7 +524,6 @@ IN PWDFDEVICE_INIT DeviceInit
 	WDFDEVICE                     device;
 	WDF_INTERRUPT_CONFIG interruptConfig;
 	WDFQUEUE                      queue;
-	UCHAR                         minorFunction;
 	PSYNA_CONTEXT               devContext;
 
 	UNREFERENCED_PARAMETER(Driver);
@@ -1105,10 +1103,11 @@ IN PSYNA_CONTEXT DevContext,
 IN WDFREQUEST Request
 )
 {
+	UNREFERENCED_PARAMETER(DevContext);
+
 	NTSTATUS status = STATUS_SUCCESS;
 	WDF_REQUEST_PARAMETERS params;
 	PHID_XFER_PACKET transferPacket = NULL;
-	size_t bytesWritten = 0;
 
 	SynaPrint(DEBUG_LEVEL_VERBOSE, DBG_IOCTL,
 		"SynaWriteReport Entry\n");
@@ -1288,6 +1287,8 @@ IN WDFREQUEST Request,
 OUT BOOLEAN* CompleteRequest
 )
 {
+	UNREFERENCED_PARAMETER(CompleteRequest);
+
 	NTSTATUS status = STATUS_SUCCESS;
 	WDF_REQUEST_PARAMETERS params;
 	PHID_XFER_PACKET transferPacket = NULL;
@@ -1374,6 +1375,8 @@ IN WDFREQUEST Request,
 OUT BOOLEAN* CompleteRequest
 )
 {
+	UNREFERENCED_PARAMETER(CompleteRequest);
+
 	NTSTATUS status = STATUS_SUCCESS;
 	WDF_REQUEST_PARAMETERS params;
 	PHID_XFER_PACKET transferPacket = NULL;
