@@ -1505,7 +1505,7 @@ OUT BOOLEAN* CompleteRequest
 					SynaPrint(DEBUG_LEVEL_ERROR, DBG_IOCTL,
 						"SynaGetFeature Error transferPacket->reportBufferLen (%d) is different from sizeof(PTPHEQ_BLOB) (%d)\n",
 						transferPacket->reportBufferLen,
-						sizeof(ElanFeatureReport));
+						sizeof(SynaFeatureReport));
 				}
 				break;
 			}

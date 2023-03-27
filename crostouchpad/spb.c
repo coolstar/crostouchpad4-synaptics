@@ -22,8 +22,8 @@ Revision History:
 #include "spb.h"
 #include <reshub.h>
 
-static ULONG SynaPrintDebugLevel = 100;
-static ULONG SynaPrintDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
+static ULONG SynaDebugLevel = 100;
+static ULONG SynaDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
 
 NTSTATUS
 SpbDoWriteDataSynchronously16(

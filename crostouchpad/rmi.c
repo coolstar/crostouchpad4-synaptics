@@ -1,7 +1,7 @@
 #include "driver.h"
 
-static ULONG SynaPrintDebugLevel = 100;
-static ULONG SynaPrintDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
+static ULONG SynaDebugLevel = 100;
+static ULONG SynaDebugCatagories = DBG_INIT || DBG_PNP || DBG_IOCTL;
 
 static NTSTATUS rmi_set_mode(PSYNA_CONTEXT pDevice, uint8_t mode) {
 	uint8_t command[] = { 0x00, 0x3f, 0x03, 0x0f, 0x23, 0x00, 0x04, 0x00, RMI_SET_RMI_MODE_REPORT_ID, mode }; //magic bytes from Linux
@@ -601,9 +601,10 @@ static NTSTATUS rmi_populate_f30(PSYNA_CONTEXT pDevice)
 			if (dat) {
 				/* actual buttons have pull up resistor */
 				pDevice->button_count++;
-				SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Button found at Bit 0x%d\n");
-				pDevice->button_mask += BIT(i);
-				pDevice->button_state_mask += BIT(i);
+				SynaPrint(DEBUG_LEVEL_INFO, DBG_PNP, "Button found at Bit %d\n", i);
+
+				pDevice->button_mask |= BIT(i);
+				pDevice->button_state_mask |= BIT(i);
 			}
 		}
 
