@@ -185,12 +185,6 @@ Status
 		return status;
 	}
 
-	status = BOOTTRACKPAD(pDevice);
-	if (!NT_SUCCESS(status))
-	{
-		return status;
-	}
-
 	return status;
 }
 
@@ -254,6 +248,12 @@ Status
 
 	for (int i = 0; i < 5; i++){
 		pDevice->Flags[i] = 0;
+	}
+
+	status = BOOTTRACKPAD(pDevice);
+	if (!NT_SUCCESS(status))
+	{
+		return status;
 	}
 
 	status = rmi_set_sleep_mode(pDevice, RMI_SLEEP_NORMAL);

@@ -69,7 +69,7 @@ static NTSTATUS rmi_read_block(PSYNA_CONTEXT pDevice, uint16_t addr, uint8_t *bu
 		goto exit;
 
 	uint8_t i2cInput[42];
-	status = SpbOnlyReadDataSynchronously(&pDevice->I2CContext, i2cInput, sizeof(i2cInput));
+	status = SpbOnlyReadDataSynchronously(&pDevice->I2CContext, &i2cInput, sizeof(i2cInput));
 	if (!NT_SUCCESS(status))
 		goto exit;
 
@@ -592,7 +592,7 @@ static NTSTATUS rmi_populate_f30(PSYNA_CONTEXT pDevice)
 	pDevice->gpio_led_count = buf[1] & RMI_F30_GPIO_LED_COUNT;
 
 	/* retrieve ctrl 2 & 3 registers */
-	bytes_per_ctrl = DIV_ROUND_UP(pDevice->gpio_led_count, 8);
+	bytes_per_ctrl = (UINT8)DIV_ROUND_UP(pDevice->gpio_led_count, 8);
 	/* Ctrl0 is present only if both has_gpio and has_led are set*/
 	ctrl2_addr = (has_gpio && has_led) ? bytes_per_ctrl : 0;
 	/* Ctrl1 is always be present, but is only length 1 for some reason? */
@@ -674,7 +674,7 @@ NTSTATUS rmi_populate(PSYNA_CONTEXT pDevice) {
 	return status;
 }
 
-NTSTATUS rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, int sleep) {
+NTSTATUS rmi_set_sleep_mode(PSYNA_CONTEXT pDevice, uint8_t sleep) {
 	uint8_t f01ctrl0 = (pDevice->f01_ctrl0 & ~0x3) | sleep;
 
 	return rmi_write(pDevice, pDevice->f01.control_base_addr, &f01ctrl0);
