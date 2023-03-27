@@ -86,7 +86,7 @@
       <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Inf>
-      <TimeStamp>4.1.3</TimeStamp>
+      <TimeStamp>4.1.4</TimeStamp>
     </Inf>
     <DriverSign>
       <FileDigestAlgorithm>SHA256</FileDigestAlgorithm>
@@ -100,7 +100,7 @@
       <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Inf>
-      <TimeStamp>4.1.3</TimeStamp>
+      <TimeStamp>4.1.4</TimeStamp>
     </Inf>
     <DriverSign>
       <FileDigestAlgorithm>SHA256</FileDigestAlgorithm>
@@ -114,7 +114,7 @@
       <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Inf>
-      <TimeStamp>4.1.3</TimeStamp>
+      <TimeStamp>4.1.4</TimeStamp>
     </Inf>
     <DriverSign>
       <FileDigestAlgorithm>SHA256</FileDigestAlgorithm>
@@ -128,7 +128,7 @@
       <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Inf>
-      <TimeStamp>4.1.3</TimeStamp>
+      <TimeStamp>4.1.4</TimeStamp>
     </Inf>
     <DriverSign>
       <FileDigestAlgorithm>SHA256</FileDigestAlgorithm>
