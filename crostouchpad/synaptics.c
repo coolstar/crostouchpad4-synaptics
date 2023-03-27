@@ -362,8 +362,6 @@ static int rmi_f30_input(PSYNA_CONTEXT pDevice, uint8_t irq, uint8_t *rmiInput, 
 	}
 
 	for (i = 0; i < pDevice->gpio_led_count; i++) {
-		if (i == 0)
-			continue;
 		if (pDevice->button_mask & BIT(i)) {
 			value = (rmiInput[i / 8] >> (i & 0x07)) & BIT(0);
 			if (pDevice->button_state_mask & BIT(i))
