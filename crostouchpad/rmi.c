@@ -595,12 +595,13 @@ static NTSTATUS rmi_populate_f30(PSYNA_CONTEXT pDevice)
 	bytes_per_ctrl = DIV_ROUND_UP(pDevice->gpio_led_count, 8);
 	/* Ctrl0 is present only if both has_gpio and has_led are set*/
 	ctrl2_addr = (has_gpio && has_led) ? bytes_per_ctrl : 0;
-	/* Ctrl1 is always be present */
-	ctrl2_addr += bytes_per_ctrl;
+	/* Ctrl1 is always be present, but is only length 1 for some reason? */
+	ctrl2_addr += sizeof(UINT8);
 	ctrl2_3_length = 2 * bytes_per_ctrl;
 
 	pDevice->f30.report_size = bytes_per_ctrl;
 
+	RtlZeroMemory(buf, sizeof(buf));
 	status = rmi_read_block(pDevice, pDevice->f30.control_base_addr + ctrl2_addr,
 		buf, ctrl2_3_length);
 	if (!NT_SUCCESS(status)) {
@@ -613,7 +614,7 @@ static NTSTATUS rmi_populate_f30(PSYNA_CONTEXT pDevice)
 	pDevice->button_mask = 0;
 	pDevice->button_state_mask = 0;
 
-	for (i = 0; i < pDevice->gpio_led_count; i++) {
+	for (i = 0; i < min(pDevice->gpio_led_count, TRACKSTICK_RANGE_END); i++) {
 		int byte_position = i >> 3;
 		int bit_position = i & 0x07;
 		uint8_t dir_byte = buf[byte_position];
