@@ -540,6 +540,31 @@ static NTSTATUS rmi_populate_f11(PSYNA_CONTEXT pDevice)
 	return status;
 }
 
+/* Defs for Query 0 */
+#define RMI_F30_EXTENDED_PATTERNS		0x01
+#define RMI_F30_HAS_MAPPABLE_BUTTONS		BIT(1)
+#define RMI_F30_HAS_LED				BIT(2)
+#define RMI_F30_HAS_GPIO			BIT(3)
+#define RMI_F30_HAS_HAPTIC			BIT(4)
+#define RMI_F30_HAS_GPIO_DRV_CTL		BIT(5)
+#define RMI_F30_HAS_MECH_MOUSE_BTNS		BIT(6)
+
+/* Defs for Query 1 */
+#define RMI_F30_GPIO_LED_COUNT			0x1F
+
+/* Defs for Control Registers */
+#define RMI_F30_CTRL_1_GPIO_DEBOUNCE		0x01
+#define RMI_F30_CTRL_1_HALT			BIT(4)
+#define RMI_F30_CTRL_1_HALTED			BIT(5)
+#define RMI_F30_CTRL_10_NUM_MECH_MOUSE_BTNS	0x03
+
+#define RMI_F30_CTRL_MAX_REGS		32
+#define RMI_F30_CTRL_MAX_BYTES		DIV_ROUND_UP(RMI_F30_CTRL_MAX_REGS, 8)
+#define RMI_F30_CTRL_MAX_REG_BLOCKS	11
+
+#define TRACKSTICK_RANGE_START		3
+#define TRACKSTICK_RANGE_END		6
+
 static NTSTATUS rmi_populate_f30(PSYNA_CONTEXT pDevice)
 {
 	uint8_t buf[20];
@@ -562,12 +587,12 @@ static NTSTATUS rmi_populate_f30(PSYNA_CONTEXT pDevice)
 		return status;
 	}
 
-	has_gpio = !!(buf[0] & BIT(3));
-	has_led = !!(buf[0] & BIT(2));
-	pDevice->gpio_led_count = buf[1] & 0x1f;
+	has_gpio = buf[0] & RMI_F30_HAS_GPIO;
+	has_led = buf[0] & RMI_F30_HAS_LED;
+	pDevice->gpio_led_count = buf[1] & RMI_F30_GPIO_LED_COUNT;
 
 	/* retrieve ctrl 2 & 3 registers */
-	bytes_per_ctrl = (pDevice->gpio_led_count + 7) / 8;
+	bytes_per_ctrl = DIV_ROUND_UP(pDevice->gpio_led_count, 8);
 	/* Ctrl0 is present only if both has_gpio and has_led are set*/
 	ctrl2_addr = (has_gpio && has_led) ? bytes_per_ctrl : 0;
 	/* Ctrl1 is always be present */
